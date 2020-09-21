@@ -1,0 +1,22 @@
+
+package com.mindlinksoft.recruitment.mychat;
+
+
+public class InvalidConversationFormatException extends Exception {
+    
+    public static String CONVERSATIONFORMAT = "<conversation_name><new_line>\n" +
+"(<unix_timestamp><space><username><space><message><new_line>)*";
+    
+   
+    public InvalidConversationFormatException(){
+         super(CONVERSATIONFORMAT);
+
+    }
+    
+    public InvalidConversationFormatException(String message){
+        super(message);
+    }
+    
+    
+    
+}
