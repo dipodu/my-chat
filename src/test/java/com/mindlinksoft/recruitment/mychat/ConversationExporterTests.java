@@ -1,72 +1,114 @@
 package com.mindlinksoft.recruitment.mychat;
 
 import com.google.gson.*;
-import org.junit.Test;
-
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.Assert;
+import org.junit.Test;
+
 
 /**
  * Tests for the {@link ConversationExporter}.
  */
 public class ConversationExporterTests {
-    /**
-     * Tests that exporting a conversation will export the conversation correctly.
-     * @throws Exception When something bad happens.
-     */
-    @Test
-    public void testExportingConversationExportsConversation() throws Exception {
+
+    public static final int HIDE_WORDS_SELECTION = 3;
+    public static final int FILTER_USER_SELECTION = 1;
+    public static final int WRITE_WITH_NO_FLAG = 0;
+    public static final int HIDE_CC_PHONE_SELECTION = 4;
+
+     @Test
+    public void testConversationExporterConfiguration() {
+
         ConversationExporter exporter = new ConversationExporter();
+        String[] inputs = {"/User/Documents/myProject/chat.txt", "/User/Documents"};
 
-        exporter.exportConversation("chat.txt", "chat.json");
+        ConversationExporterConfiguration configuration = new CommandLineArgumentParser().parseCommandLineArguments(inputs);
 
-        GsonBuilder builder = new GsonBuilder();
-        builder.registerTypeAdapter(Instant.class, new InstantDeserializer());
+        String actualInputDestination = configuration.inputFilePath;
+        String actualOutputDestination = configuration.outputFilePath;
+        
+        String expectedInputDestination = "/User/Documents/myProject/chat.txt";
+        String expectedOutputDestination = "/User/Documents";
 
-        Gson g = builder.create();
+        Assert.assertEquals(expectedInputDestination, actualInputDestination);
+        Assert.assertEquals(expectedOutputDestination, actualOutputDestination);
+    }
+    
+    
+    
+    @Test
+    public void testHidePhoneNumberAndCreditCardInConversationMessage() {
 
-        Conversation c = g.fromJson(new InputStreamReader(new FileInputStream("chat.json")), Conversation.class);
+        ConversationExporter exporter = new ConversationExporter();
+        List<String> arguments = new ArrayList<>();
 
-        assertEquals("My Conversation", c.name);
+        String timestamp = "1568470912";
+        String name = "John";
+        String message = "my number is +447222425965 call me back";
+        int filterFlags = HIDE_CC_PHONE_SELECTION;
 
-        assertEquals(7, c.messages.size());
+        List<String> processedMessage = exporter.filterConversation(timestamp, name, message, filterFlags, arguments);
 
-        Message[] ms = new Message[c.messages.size()];
-        c.messages.toArray(ms);
+        String actualMessage = processedMessage.get(2);
+        String expectedMessage = "my number is +**redacted** call me back";
 
-        assertEquals(ms[0].timestamp, Instant.ofEpochSecond(1448470901));
-        assertEquals(ms[0].senderId, "bob");
-        assertEquals(ms[0].content, "Hello there!");
+        Assert.assertEquals(expectedMessage, actualMessage);
+        String testMessage2 = "my both my debit card: 9876987652637487 9874-9876-9876-6535";
+        List<String> processedMessage2 = exporter.filterConversation(timestamp, name, testMessage2, filterFlags, arguments);
 
-        assertEquals(ms[1].timestamp, Instant.ofEpochSecond(1448470905));
-        assertEquals(ms[1].senderId, "mike");
-        assertEquals(ms[1].content, "how are you?");
+        String actualMessage2 = processedMessage2.get(2);
+        String expectedMessage2 = "my both my debit card: **redacted** **redacted**";
 
-        assertEquals(ms[2].timestamp, Instant.ofEpochSecond(1448470906));
-        assertEquals(ms[2].senderId, "bob");
-        assertEquals(ms[2].content, "I'm good thanks, do you like pie?");
+        Assert.assertEquals(expectedMessage2, actualMessage2);
 
-        assertEquals(ms[3].timestamp, Instant.ofEpochSecond(1448470910));
-        assertEquals(ms[3].senderId, "mike");
-        assertEquals(ms[3].content, "no, let me ask Angus...");
-
-        assertEquals(ms[4].timestamp, Instant.ofEpochSecond(1448470912));
-        assertEquals(ms[4].senderId, "angus");
-        assertEquals(ms[4].content, "Hell yes! Are we buying some pie?");
-
-        assertEquals(ms[5].timestamp, Instant.ofEpochSecond(1448470914));
-        assertEquals(ms[5].senderId, "bob");
-        assertEquals(ms[5].content, "No, just want to know if there's anybody else in the pie society...");
-
-        assertEquals(ms[6].timestamp, Instant.ofEpochSecond(1448470915));
-        assertEquals(ms[6].senderId, "angus");
-        assertEquals(ms[6].content, "YES! I'm the head pie eater there...");
     }
 
+    @Test
+    public void testHideWordsInConversationMessage() {
+
+        ConversationExporter exporter = new ConversationExporter();
+        List<String> arguments = new ArrayList<>();
+
+        String timestamp = "1568470912";
+        String name = "John";
+        String message = "the weather is always sunny in london. it never rains";
+        int filterFlags = HIDE_WORDS_SELECTION;
+        arguments.add("sunny");
+        arguments.add("never");
+
+        List<String> processedMessage = exporter.filterConversation(timestamp, name, message, filterFlags, arguments);
+
+        String actualMessage = processedMessage.get(2);
+        String expectedMessage = "the weather is always **redacted** in london. it **redacted** rains";
+
+        Assert.assertEquals(expectedMessage, actualMessage);
+    }
+
+    @Test
+    public void testFilterUserInConversationMessage() {
+
+        ConversationExporter exporter = new ConversationExporter();
+        List<String> arguments = new ArrayList<>();
+
+        String timestamp = "1448470912";
+        String name = "prince";
+        String message = "the pizza is coming. relax";
+        int filterFlags = FILTER_USER_SELECTION;
+        arguments.add("prince");
+
+        List<String> processedConversationData = exporter.filterConversation(timestamp, name, message, filterFlags, arguments);
+
+        String expectedName = "prince";
+        String actualName = processedConversationData.get(1);
+
+        Assert.assertEquals(expectedName, actualName);
+
+    }
+    
     class InstantDeserializer implements JsonDeserializer<Instant> {
 
         @Override
